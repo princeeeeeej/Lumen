@@ -29,3 +29,10 @@ class DocumentOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ChatRequest(BaseModel):
+    document_id: int
+    question: str
+
+class ChatResponse(BaseModel):
+    answer: str

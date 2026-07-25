@@ -3,6 +3,7 @@ from app.config import settings
 from app.database import engine, Base
 from app.routes import auth as auth_routes
 from app.routes import documents as document_routes
+from app.routes import chat as chat_routes
 
 
 app = FastAPI(title=settings.app_name)
@@ -19,3 +20,4 @@ def health_check():
 
 app.include_router(auth_routes.router)
 app.include_router(document_routes.router)
+app.include_router(chat_routes.router)

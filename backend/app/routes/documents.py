@@ -8,6 +8,7 @@ from app.models import User, Document
 from app.database import get_db
 from app.auth import get_current_user
 from app.schemas import DocumentOut
+from app.rag.ingestion import process_document
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -48,6 +49,16 @@ async def upload_document(
         status = "uploaded"
     )
     db.add(document)
+    await db.commit()
+    await db.refresh(document)
+
+    try:
+        process_document(document_id=document.id, filepath=filepath)
+        document.status = "indexed"
+    except Exception as e:
+        document.status = "falied"
+        print(f"Processing failed for document {document.id}: {e}")
+
     await db.commit()
     await db.refresh(document)
 

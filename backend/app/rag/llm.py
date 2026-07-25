@@ -1,4 +1,4 @@
-from huggingface_hub import InferenceClient
+from groq import Groq
 from app.config import settings
 
 _client = None
@@ -6,7 +6,7 @@ _client = None
 def get_llm_client():
     global _client
     if _client is None:
-        _client = InferenceClient(token=settings.hf_token)
+        _client = Groq(api_key=settings.groq_api_key)
     return _client
 
 def generate_answer(context: str, question: str) -> str:
@@ -15,9 +15,9 @@ def generate_answer(context: str, question: str) -> str:
     prompt = RAG_PROMPT_TEMPLATE.format(context=context, question=question)
     client = get_llm_client()
 
-    response = client.chat_completion(
+    response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
-        model="Qwen/Qwen2.5-72B-Instruct",
+        model="llama-3.3-70b-versatile",
         max_tokens=512
     )
     return response.choices[0].message.content
