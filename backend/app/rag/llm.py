@@ -21,3 +21,22 @@ def generate_answer(context: str, question: str) -> str:
         max_tokens=512
     )
     return response.choices[0].message.content
+
+
+def generate_answer_stream(context: str, question: str):
+    from app.rag.prompts import RAG_PROMPT_TEMPLATE
+
+    prompt = RAG_PROMPT_TEMPLATE.format(context=context, question= question)
+    client = get_llm_client()
+
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": prompt}],
+        model="llama-3.3-70b-versatile",
+        max_tokens=512,
+        stream=True
+    )
+
+    for chunk in stream:
+        content = chunk.choices[0].delta.content
+        if content:
+            yield content

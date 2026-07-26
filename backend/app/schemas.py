@@ -36,3 +36,4 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
+    sources: list[int] = []
