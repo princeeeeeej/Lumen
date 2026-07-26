@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 import os
 import uuid
 import fitz
@@ -9,6 +10,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.schemas import DocumentOut
 from app.rag.ingestion import process_document
+from sqlalchemy import select
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -63,3 +65,38 @@ async def upload_document(
     await db.refresh(document)
 
     return document
+
+@router.get("/{document_id}", response_model=DocumentOut)
+async def get_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Document).where(
+            Document.id == document_id,
+            Document.owner_id == current_user.id
+        )
+    )
+    document = result.scalar_one_or_none()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return document
+
+@router.get("/{document_id}/file")
+async def get_document_file(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Document).where(
+            Document.id == document_id,
+            Document.owner_id == current_user.id
+        )
+    )
+    document = result.scalar_one_or_none()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return FileResponse(document.filepath, media_type="application/pdf")
