@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     secret_key: str = "changeme"
     hf_token: str = ""
     groq_api_key: str = ""
+    database_url: str = "sqlite+aiosqlite:///./data/app.db"
 
     class Config:
         env_file = ".env"

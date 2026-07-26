@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
-from app.models import User, Document
+from app.models import User, Document, Message
 from app.schemas import ChatRequest, ChatResponse
 from app.auth import get_current_user
 from app.rag.graph import build_rag_graph, run_rag_stream
@@ -44,6 +44,14 @@ async def chat(
         "document_id": document.id
     })
 
+    answer = result["answer"]
+    sources = result.get("sources", [])
+
+    user_msg = Message(document_id=document.id, role="user", content=request.question)
+    assistant_msg = Message(document_id=document.id, role="assistant", content=answer, sources=sources)
+    db.add_all([user_msg, assistant_msg])
+    await db.commit()
+
     return ChatResponse(answer=result["answer"], sources=result.get("sources", []))
 
 @router.post("/stream")
@@ -66,12 +74,28 @@ async def chat_stream(
     if document.status != "indexed":
         raise HTTPException(status_code=400, detail=f"Document is not ready (status: {document.status})")
 
-    def event_generator():
+    async def event_generator():
+        full_answer = ""
+        final_sources = []
+
         for event in run_rag_stream(request.question, document.id):
             if event["type"] == "token":
+                full_answer += event["content"]
                 yield f"data: {json.dumps({'token': event['content']})}\n\n"
             elif event["type"] == "sources":
+                final_sources = event["content"]
                 yield f"data: {json.dumps({'sources': event['content']})}\n\n"
+
+        user_msg = Message(document_id=document.id, role="user", content=request.question)
+        assistant_msg = Message(
+            document_id=document.id,
+            role="assistant",
+            content=full_answer,
+            sources=final_sources
+        )
+        db.add_all([user_msg, assistant_msg])
+        await db.commit()
+
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

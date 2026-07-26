@@ -5,12 +5,13 @@ import uuid
 import fitz
 import re
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import User, Document
+from app.models import User, Document, Message
 from app.database import get_db
 from app.auth import get_current_user
-from app.schemas import DocumentOut
+from app.schemas import DocumentOut, MessageOut
 from app.rag.ingestion import process_document
 from sqlalchemy import select
+from typing import List
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -58,13 +59,24 @@ async def upload_document(
         process_document(document_id=document.id, filepath=filepath)
         document.status = "indexed"
     except Exception as e:
-        document.status = "falied"
+        document.status = "failed"
         print(f"Processing failed for document {document.id}: {e}")
 
     await db.commit()
     await db.refresh(document)
 
     return document
+
+@router.get("", response_model=List[DocumentOut])
+async def list_documents(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Document).where(Document.owner_id == current_user.id)
+    )
+    documents = result.scalars().all()
+    return documents
 
 @router.get("/{document_id}", response_model=DocumentOut)
 async def get_document(
@@ -100,3 +112,24 @@ async def get_document_file(
         raise HTTPException(status_code=404, detail="Document not found")
 
     return FileResponse(document.filepath, media_type="application/pdf")
+
+
+@router.get("/{document_id}/history", response_model=List[MessageOut])
+async def get_chat_history(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    doc_result = await db.execute(select(Document).where(
+        Document.id == document_id,
+        Document.owner_id == current_user.id
+    ))
+
+    if not doc_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    result = await db.execute(
+        select(Message).where(Message.document_id == document_id).order_by(Message.created_at)
+    )
+
+    return result.scalars().all()
