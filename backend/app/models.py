@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.sql import func
 from app.database import Base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 class User(Base):
     __tablename__ = "users"
@@ -31,9 +31,9 @@ class Message(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
-    role = Column(String, nullable=False)  # "user" or "assistant"
+    role = Column(String, nullable=False)
     content = Column(String, nullable=False)
-    sources = Column(JSON, nullable=True)  # e.g. [1, 2, 4] — native JSON, no manual serialize/deserialize
+    sources: Mapped[list[int]] = mapped_column(JSON,default=list,nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     document = relationship("Document", back_populates="messages")

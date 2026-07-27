@@ -47,7 +47,7 @@ async def chat(
     answer = result["answer"]
     sources = result.get("sources", [])
 
-    user_msg = Message(document_id=document.id, role="user", content=request.question)
+    user_msg = Message(document_id=document.id, role="user", content=request.question, sources=[])
     assistant_msg = Message(document_id=document.id, role="assistant", content=answer, sources=sources)
     db.add_all([user_msg, assistant_msg])
     await db.commit()
@@ -86,7 +86,7 @@ async def chat_stream(
                 final_sources = event["content"]
                 yield f"data: {json.dumps({'sources': event['content']})}\n\n"
 
-        user_msg = Message(document_id=document.id, role="user", content=request.question)
+        user_msg = Message(document_id=document.id, role="user", content=request.question, sources=[])
         assistant_msg = Message(
             document_id=document.id,
             role="assistant",
